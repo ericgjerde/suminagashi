@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test - Suminagashi 3D</title>
+    <style>
+        body { margin: 0; background: #000; color: #fff; font-family: monospace; padding: 20px; }
+        #status { background: #333; padding: 10px; margin: 10px 0; }
+        canvas { border: 1px solid #444; }
+    </style>
+</head>
+<body>
+    <h2>Suminagashi 3D - Validation Test</h2>
+    <div id="status">Initializing...</div>
+    <canvas id="glcanvas" width="800" height="600"></canvas>
+    <div id="errbox"></div>
+    
+    <!-- Mock UI elements -->
+    <div style="display:none">
+        <select id="tool"><option value="ink">Ink</option></select>
+        <input id="inkColor" value="#0a0a0a">
+        <input id="inkRadius" value="28">
+        <input id="forceRadius" value="32">
+        <input id="force" value="800">
+        <input id="viscosity" value="8">
+        <input id="dyeDiss" value="2">
+        <input id="pressureIters" value="55">
+        <input id="tilt" value="28">
+        <input id="spin" value="-20">
+        <input id="heightScale" value="18">
+        <input id="gloss" value="60">
+        <button id="resetBtn">Reset</button>
+    </div>
+    
+    <script>
+        // Add error handling
+        window.addEventListener('error', function(e) {
+            const status = document.getElementById('status');
+            const errbox = document.getElementById('errbox');
+            const msg = 'ERROR: ' + (e.message || 'Unknown error') + ' at line ' + e.lineno;
+            console.error(msg);
+            status.innerHTML += '<br><span style="color:red">' + msg + '</span>';
+            if(errbox) {
+                errbox.style.color = 'red';
+                errbox.innerHTML += msg + '<br>';
+            }
+        });
+        
+        // Track initialization
+        console.log('Loading app.js...');
+        document.getElementById('status').innerHTML = 'Loading app.js...';
+    </script>
+    
+    <script src="app.js"></script>
+    
+    <script>
+        // Check if initialization completed
+        setTimeout(function() {
+            const status = document.getElementById('status');
+            if (!status.innerHTML.includes('ERROR')) {
+                status.innerHTML += '<br><span style="color:green">✓ App loaded successfully!</span>';
+                console.log('App loaded successfully!');
+            }
+        }, 1000);
+    </script>
+</body>
+</html>

@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Simple Debug Test</title>
+    <style>
+        body { margin: 0; background: #222; color: #fff; font-family: monospace; padding: 10px; }
+        canvas { border: 2px solid #666; display: block; margin: 10px; }
+        button { margin: 5px; padding: 8px; background: #444; color: #fff; border: 1px solid #666; cursor: pointer; }
+        button:hover { background: #555; }
+        #info { background: #333; padding: 10px; margin: 10px 0; min-height: 100px; white-space: pre-wrap; }
+        .control-group { margin: 10px 0; padding: 10px; background: #2a2a2a; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <h2>Suminagashi 3D - Simple Debug Test</h2>
+    <div id="info">Loading...</div>
+    
+    <div class="control-group">
+        <h3>Test Actions:</h3>
+        <button onclick="testDropInk()">Drop Big Red Ink Blob</button>
+        <button onclick="testMultipleDrops()">Drop Multiple Colors</button>
+        <button onclick="checkTextures()">Check Texture Status</button>
+        <button onclick="testDirectRender()">Test Direct Quad Render</button>
+    </div>
+    
+    <canvas id="glcanvas" width="800" height="600"></canvas>
+    <div id="errbox"></div>
+    
+    <!-- Hidden UI elements needed by app.js -->
+    <div style="display:none">
+        <select id="tool"><option value="ink">Ink</option></select>
+        <input id="inkColor" value="#ff0000">
+        <input id="inkRadius" value="80">
+        <input id="forceRadius" value="32">
+        <input id="force" value="800">
+        <input id="viscosity" value="8">
+        <input id="dyeDiss" value="0">
+        <input id="pressureIters" value="55">
+        <input id="tilt" value="45">
+        <input id="spin" value="0">
+        <input id="heightScale" value="30">
+        <input id="gloss" value="60">
+        <button id="resetBtn">Reset</button>
+        <span id="status"></span>
+    </div>
+    
+    <script src="app.js"></script>
+    
+    <script>
+        const info = document.getElementById('info');
+        
+        function log(msg) {
+            const time = new Date().toTimeString().split(' ')[0];
+            info.textContent += `[${time}] ${msg}\n`;
+            console.log(msg);
+        }
+        
+        // Wait for app to load
+        setTimeout(() => {
+            info.textContent = '';
+            if (window.DEBUG) {
+                log('✓ DEBUG object available');
+                log(`✓ WebGL context: ${window.DEBUG.gl ? 'OK' : 'MISSING'}`);
+                log(`✓ Sim object: ${window.DEBUG.sim ? 'OK' : 'MISSING'}`);
+                if (window.DEBUG.sim) {
+                    log(`  - Dye textures: ${window.DEBUG.sim.dye ? 'OK' : 'MISSING'}`);
+                    log(`  - Velocity textures: ${window.DEBUG.sim.velocity ? 'OK' : 'MISSING'}`);
+                    log(`  - Current size: ${window.DEBUG.current.w}x${window.DEBUG.current.h}`);
+                }
+            } else {
+                log('✗ DEBUG object not available - app may not have loaded');
+            }
+        }, 1000);
+        
+        function testDropInk() {
+            log('\n=== Testing Drop Ink ===');
+            if (!window.DEBUG || !window.DEBUG.dropInk) {
+                log('✗ dropInk function not available');
+                return;
+            }
+            
+            // Drop a large red blob at center
+            log('Dropping large red ink blob at center (0.5, 0.5)...');
+            window.DEBUG.dropInk(0.5, 0.5);
+            
+            // Also try direct splatDye
+            if (window.DEBUG.splatDye) {
+                log('Also calling splatDye directly with bright red...');
+                window.DEBUG.splatDye(0.5, 0.5, [1.0, 0.0, 0.0], 100);
+            }
+            
+            log('✓ Ink drop commands sent');
+        }
+        
+        function testMultipleDrops() {
+            log('\n=== Testing Multiple Drops ===');
+            if (!window.DEBUG || !window.DEBUG.splatDye) {
+                log('✗ splatDye function not available');
+                return;
+            }
+            
+            const drops = [
+                { x: 0.3, y: 0.3, color: [1, 0, 0], name: 'Red' },
+                { x: 0.7, y: 0.3, color: [0, 1, 0], name: 'Green' },
+                { x: 0.5, y: 0.7, color: [0, 0, 1], name: 'Blue' },
+                { x: 0.3, y: 0.7, color: [1, 1, 0], name: 'Yellow' },
+                { x: 0.7, y: 0.7, color: [1, 0, 1], name: 'Magenta' }
+            ];
+            
+            drops.forEach(drop => {
+                log(`Dropping ${drop.name} at (${drop.x}, ${drop.y})`);
+                window.DEBUG.splatDye(drop.x, drop.y, drop.color, 60);
+            });
+            
+            log('✓ Multiple ink drops sent');
+        }
+        
+        function checkTextures() {
+            log('\n=== Checking Texture Contents ===');
+            if (!window.DEBUG || !window.DEBUG.gl || !window.DEBUG.sim) {
+                log('✗ Required objects not available');
+                return;
+            }
+            
+            const gl = window.DEBUG.gl;
+            const sim = window.DEBUG.sim;
+            
+            // Read a pixel from the dye texture
+            const pixel = new Uint8Array(4);
+            const fbo = gl.createFramebuffer();
+            
+            // Check dye texture
+            gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+            gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, sim.dye.read.tex, 0);
+            
+            if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE) {
+                // Read center pixel
+                const cx = Math.floor(window.DEBUG.current.w / 2);
+                const cy = Math.floor(window.DEBUG.current.h / 2);
+                gl.readPixels(cx, cy, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixel);
+                log(`Dye texture center pixel: R=${pixel[0]} G=${pixel[1]} B=${pixel[2]} A=${pixel[3]}`);
+                
+                // Sample multiple points
+                const samples = [
+                    { x: 0.25, y: 0.25, name: 'Top-left' },
+                    { x: 0.75, y: 0.25, name: 'Top-right' },
+                    { x: 0.5, y: 0.5, name: 'Center' },
+                    { x: 0.25, y: 0.75, name: 'Bottom-left' },
+                    { x: 0.75, y: 0.75, name: 'Bottom-right' }
+                ];
+                
+                samples.forEach(s => {
+                    const sx = Math.floor(s.x * window.DEBUG.current.w);
+                    const sy = Math.floor(s.y * window.DEBUG.current.h);
+                    gl.readPixels(sx, sy, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixel);
+                    const hasColor = pixel[0] > 0 || pixel[1] > 0 || pixel[2] > 0;
+                    log(`  ${s.name} (${sx},${sy}): RGBA(${pixel[0]},${pixel[1]},${pixel[2]},${pixel[3]}) ${hasColor ? '← HAS COLOR!' : ''}`);
+                });
+            } else {
+                log('✗ Could not read from dye texture');
+            }
+            
+            gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+            gl.deleteFramebuffer(fbo);
+        }
+        
+        function testDirectRender() {
+            log('\n=== Testing Direct Render ===');
+            if (!window.DEBUG || !window.DEBUG.gl) {
+                log('✗ WebGL context not available');
+                return;
+            }
+            
+            const gl = window.DEBUG.gl;
+            
+            // Create a simple test that draws a red triangle
+            const vsSource = `#version 300 es
+                layout(location=0) in vec2 aPosition;
+                void main() {
+                    gl_Position = vec4(aPosition, 0.0, 1.0);
+                }`;
+            
+            const fsSource = `#version 300 es
+                precision highp float;
+                out vec4 fragColor;
+                void main() {
+                    fragColor = vec4(1.0, 0.0, 0.0, 1.0);
+                }`;
+            
+            // Compile shaders
+            const vs = gl.createShader(gl.VERTEX_SHADER);
+            gl.shaderSource(vs, vsSource);
+            gl.compileShader(vs);
+            if (!gl.getShaderParameter(vs, gl.COMPILE_STATUS)) {
+                log('✗ Vertex shader compile failed: ' + gl.getShaderInfoLog(vs));
+                return;
+            }
+            
+            const fs = gl.createShader(gl.FRAGMENT_SHADER);
+            gl.shaderSource(fs, fsSource);
+            gl.compileShader(fs);
+            if (!gl.getShaderParameter(fs, gl.COMPILE_STATUS)) {
+                log('✗ Fragment shader compile failed: ' + gl.getShaderInfoLog(fs));
+                return;
+            }
+            
+            // Create program
+            const prog = gl.createProgram();
+            gl.attachShader(prog, vs);
+            gl.attachShader(prog, fs);
+            gl.linkProgram(prog);
+            if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
+                log('✗ Program link failed: ' + gl.getProgramInfoLog(prog));
+                return;
+            }
+            
+            // Create triangle
+            const vao = gl.createVertexArray();
+            gl.bindVertexArray(vao);
+            const vbo = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+                0.0, 0.5,
+                -0.5, -0.5,
+                0.5, -0.5
+            ]), gl.STATIC_DRAW);
+            gl.enableVertexAttribArray(0);
+            gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+            
+            // Draw
+            gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+            gl.clearColor(0.0, 0.0, 0.5, 1.0);
+            gl.clear(gl.COLOR_BUFFER_BIT);
+            gl.useProgram(prog);
+            gl.bindVertexArray(vao);
+            gl.drawArrays(gl.TRIANGLES, 0, 3);
+            
+            log('✓ Drew red triangle on blue background');
+            log('  If you see this, basic WebGL rendering works');
+            log('  If not, there may be a canvas display issue');
+            
+            // Clean up
+            gl.deleteProgram(prog);
+            gl.deleteShader(vs);
+            gl.deleteShader(fs);
+            gl.deleteVertexArray(vao);
+            gl.deleteBuffer(vbo);
+        }
+        
+        // Error handling
+        window.addEventListener('error', function(e) {
+            log('ERROR: ' + e.message + ' at line ' + e.lineno);
+        });
+    </script>
+</body>
+</html>

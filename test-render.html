@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Render - Direct Texture View</title>
+    <style>
+        body { margin: 0; background: #222; color: #fff; font-family: monospace; padding: 10px; }
+        canvas { border: 2px solid #666; display: block; margin: 10px; }
+        button { margin: 5px; padding: 8px; }
+        #info { background: #333; padding: 10px; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <h2>Direct Texture Rendering Test</h2>
+    <div id="info">Testing if dye texture contains data...</div>
+    
+    <canvas id="glcanvas" width="800" height="600"></canvas>
+    <div id="errbox"></div>
+    
+    <button onclick="dropRedInk()">Drop Red Ink (Center)</button>
+    <button onclick="showDyeTexture()">Show Dye Texture</button>
+    <button onclick="showVelocityTexture()">Show Velocity Texture</button>
+    <button onclick="showNormal3D()">Show Normal 3D View</button>
+    
+    <!-- Hidden UI elements -->
+    <div style="display:none">
+        <select id="tool"><option value="ink">Ink</option></select>
+        <input id="inkColor" value="#ff0000">
+        <input id="inkRadius" value="50">
+        <input id="forceRadius" value="32">
+        <input id="force" value="800">
+        <input id="viscosity" value="8">
+        <input id="dyeDiss" value="0">
+        <input id="pressureIters" value="55">
+        <input id="tilt" value="28">
+        <input id="spin" value="-20">
+        <input id="heightScale" value="18">
+        <input id="gloss" value="60">
+        <button id="resetBtn">Reset</button>
+        <span id="status"></span>
+    </div>
+    
+    <script src="app.js"></script>
+    
+    <script>
+        const info = document.getElementById('info');
+        let testMode = 'normal';
+        
+        // Wait for app to initialize
+        setTimeout(() => {
+            info.textContent = 'App loaded. Testing texture rendering...';
+            
+            // Create a simple shader to display textures directly
+            window.testProgram = createTestShader();
+        }, 500);
+        
+        function createTestShader() {
+            const gl = document.getElementById('glcanvas').getContext('webgl2');
+            if (!gl) return null;
+            
+            const vsSource = `#version 300 es
+                layout(location=0) in vec2 aPosition;
+                out vec2 vUV;
+                void main() {
+                    vUV = aPosition * 0.5 + 0.5;
+                    gl_Position = vec4(aPosition, 0.0, 1.0);
+                }`;
+            
+            const fsSource = `#version 300 es
+                precision highp float;
+                in vec2 vUV;
+                out vec4 fragColor;
+                uniform sampler2D uTexture;
+                uniform int uMode; // 0=dye, 1=velocity, 2=pressure
+                void main() {
+                    vec4 sample = texture(uTexture, vUV);
+                    if (uMode == 0) {
+                        // Dye - show RGB with enhanced visibility
+                        fragColor = vec4(sample.rgb * 10.0, 1.0);
+                    } else if (uMode == 1) {
+                        // Velocity - visualize as red/green
+                        vec2 vel = sample.xy;
+                        fragColor = vec4(vel.x * 0.5 + 0.5, vel.y * 0.5 + 0.5, 0.0, 1.0);
+                    } else {
+                        // Pressure - visualize as grayscale
+                        float p = sample.r;
+                        fragColor = vec4(p, p, p, 1.0);
+                    }
+                }`;
+            
+            // Compile shaders
+            const vs = gl.createShader(gl.VERTEX_SHADER);
+            gl.shaderSource(vs, vsSource);
+            gl.compileShader(vs);
+            
+            const fs = gl.createShader(gl.FRAGMENT_SHADER);
+            gl.shaderSource(fs, fsSource);
+            gl.compileShader(fs);
+            
+            // Create program
+            const prog = gl.createProgram();
+            gl.attachShader(prog, vs);
+            gl.attachShader(prog, fs);
+            gl.linkProgram(prog);
+            
+            if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
+                console.error('Test shader link failed:', gl.getProgramInfoLog(prog));
+                return null;
+            }
+            
+            return prog;
+        }
+        
+        function dropRedInk() {
+            info.textContent = 'Dropping red ink at center...';
+            
+            // Access the global sim object from app.js
+            if (typeof splatDye === 'function') {
+                splatDye(0.5, 0.5, [1, 0, 0], 50);
+                info.textContent = 'Red ink dropped! Switch to "Show Dye Texture" to see it.';
+            } else {
+                // Simulate a click at center
+                const canvas = document.getElementById('glcanvas');
+                const rect = canvas.getBoundingClientRect();
+                const event = new PointerEvent('pointerdown', {
+                    clientX: rect.left + rect.width / 2,
+                    clientY: rect.top + rect.height / 2,
+                    pointerId: 999
+                });
+                canvas.dispatchEvent(event);
+                info.textContent = 'Click simulated at center. Switch to "Show Dye Texture" to see if ink was added.';
+            }
+        }
+        
+        function showDyeTexture() {
+            testMode = 'dye';
+            info.textContent = 'Showing dye texture directly (enhanced 10x for visibility)';
+        }
+        
+        function showVelocityTexture() {
+            testMode = 'velocity';
+            info.textContent = 'Showing velocity texture (red=X, green=Y)';
+        }
+        
+        function showNormal3D() {
+            testMode = 'normal';
+            info.textContent = 'Showing normal 3D view';
+        }
+        
+        // Override the render function to add test mode
+        const originalRender = window.render;
+        if (originalRender) {
+            window.render = function() {
+                const gl = document.getElementById('glcanvas').getContext('webgl2');
+                
+                if (testMode !== 'normal' && window.testProgram && window.sim) {
+                    // Use test shader to display texture directly
+                    gl.disable(gl.DEPTH_TEST);
+                    gl.clearColor(0.1, 0.1, 0.1, 1.0);
+                    gl.clear(gl.COLOR_BUFFER_BIT);
+                    
+                    gl.useProgram(window.testProgram);
+                    
+                    // Bind the appropriate texture
+                    gl.activeTexture(gl.TEXTURE0);
+                    if (testMode === 'dye' && window.sim.dye) {
+                        gl.bindTexture(gl.TEXTURE_2D, window.sim.dye.read.tex);
+                        gl.uniform1i(gl.getUniformLocation(window.testProgram, 'uMode'), 0);
+                    } else if (testMode === 'velocity' && window.sim.velocity) {
+                        gl.bindTexture(gl.TEXTURE_2D, window.sim.velocity.read.tex);
+                        gl.uniform1i(gl.getUniformLocation(window.testProgram, 'uMode'), 1);
+                    } else if (window.sim.pressure) {
+                        gl.bindTexture(gl.TEXTURE_2D, window.sim.pressure.read.tex);
+                        gl.uniform1i(gl.getUniformLocation(window.testProgram, 'uMode'), 2);
+                    }
+                    gl.uniform1i(gl.getUniformLocation(window.testProgram, 'uTexture'), 0);
+                    
+                    // Draw fullscreen quad
+                    if (window.quadVAO) {
+                        gl.bindVertexArray(window.quadVAO);
+                        gl.drawArrays(gl.TRIANGLES, 0, 6);
+                        gl.bindVertexArray(null);
+                    }
+                } else {
+                    // Normal rendering
+                    originalRender.call(this);
+                }
+            };
+        }
+        
+        // Log any errors
+        window.addEventListener('error', function(e) {
+            info.textContent = 'ERROR: ' + e.message;
+            console.error(e);
+        });
+    </script>
+</body>
+</html>

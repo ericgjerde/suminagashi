@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Suminagashi 3D — Compatibility Build (v2 hotfix B)</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <canvas id="glcanvas"></canvas>
+  <div id="ui">
+    <div class="row head">
+      <h1>Suminagashi 3D — Compat</h1>
+      <button id="resetBtn" title="Clear the tank">Reset</button>
+      <span id="status" class="pill">Booting…</span>
+    </div>
+    <div class="row">
+      <label>Tool
+        <select id="tool">
+          <option value="ink">Ink dropper</option>
+          <option value="stylus">Stylus</option>
+          <option value="comb">Comb</option>
+        </select>
+      </label>
+      <label>Ink <input type="color" id="inkColor" value="#ff0000"></label>
+      <label>Ink radius <input type="range" id="inkRadius" min="2" max="80" value="28"></label>
+      <label>Stylus radius <input type="range" id="forceRadius" min="2" max="120" value="32"></label>
+      <label>Force <input type="range" id="force" min="2" max="3000" value="800"></label>
+    </div>
+    <div class="row">
+      <label>Viscosity <input type="range" id="viscosity" min="0" max="100" value="8"></label>
+      <label>Dye fade <input type="range" id="dyeDiss" min="0" max="100" value="0"></label>
+      <label>Pressure iters <input type="range" id="pressureIters" min="10" max="120" value="55"></label>
+      <label>Water depth <input type="range" id="heightScale" min="0" max="60" value="18"></label>
+      <label>Gloss <input type="range" id="gloss" min="0" max="100" value="60"></label>
+    </div>
+    <div class="row">
+      <label>Camera tilt <input type="range" id="tilt" min="0" max="70" value="28"></label>
+      <label>Camera spin <input type="range" id="spin" min="-180" max="180" value="-20"></label>
+    </div>
+    <div class="row tiny">
+      <span>Click to drop ink. Drag with Stylus/Comb to disturb. Hold <b>Shift</b> while dragging to also lay ink. Press <b>R</b> to reset.</span>
+    </div>
+  </div>
+  <div id="errbox" class="hidden"></div>
+  <script>
+    window.addEventListener('error', function(e){
+      var box = document.getElementById('errbox');
+      if(!box) return;
+      box.classList.remove('hidden');
+      var msg = (e && (e.message || e.error)) || (e.filename + ':' + e.lineno);
+      box.textContent += (box.textContent ? '\n' : '') + 'Error: ' + msg;
+    });
+  </script>
+  <script src="app.js" defer></script>
+</body>
+</html>
