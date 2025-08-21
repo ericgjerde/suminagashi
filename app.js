@@ -830,7 +830,7 @@ function testTriangle() {
 function render2DWater() {
   gl.viewport(0, 0, canvas.width, canvas.height);
   gl.disable(gl.DEPTH_TEST);
-  gl.clearColor(0.02, 0.05, 0.08, 1.0);
+  gl.clearColor(0.95, 0.92, 0.88, 1.0);  // Cream background
   gl.clear(gl.COLOR_BUFFER_BIT);
   
   // Create 2D water shader if needed
@@ -853,16 +853,16 @@ function render2DWater() {
         vec4 dye = texture(uDye, vUV);
         float h = texture(uHeight, vUV).r;
         
-        // Water base color with slight height variation
-        vec3 waterDeep = vec3(0.02, 0.08, 0.15);
-        vec3 waterShallow = vec3(0.05, 0.15, 0.25);
-        vec3 waterColor = mix(waterDeep, waterShallow, h * 2.0);
+        // Cream/paper base color with subtle variation
+        vec3 paperBase = vec3(0.95, 0.92, 0.88);  // Cream color like traditional paper
+        vec3 paperLight = vec3(0.98, 0.96, 0.93); // Slightly lighter cream
+        vec3 paperColor = mix(paperBase, paperLight, h * 0.5);
         
-        // Mix in the dye
-        vec3 finalColor = mix(waterColor, dye.rgb, clamp(dye.a, 0.0, 1.0));
+        // Mix in the dye - ink sits on top of paper
+        vec3 finalColor = mix(paperColor, dye.rgb, clamp(dye.a, 0.0, 1.0));
         
-        // Add some surface shine based on height
-        finalColor += vec3(h * 0.1);
+        // Subtle paper texture/shine
+        finalColor += vec3(h * 0.02);
         
         fragColor = vec4(finalColor, 1.0);
       }`;
@@ -1013,9 +1013,9 @@ function debugRenderDyeTexture() {
       uniform sampler2D uTexture;
       void main() {
         vec4 dye = texture(uTexture, vUV);
-        // Show actual dye colors on dark blue water background
-        vec3 waterColor = vec3(0.02, 0.05, 0.15);
-        vec3 finalColor = mix(waterColor, dye.rgb, clamp(dye.a * 2.0, 0.0, 1.0));
+        // Show actual dye colors on cream paper background
+        vec3 paperColor = vec3(0.95, 0.92, 0.88);
+        vec3 finalColor = mix(paperColor, dye.rgb, clamp(dye.a * 2.0, 0.0, 1.0));
         fragColor = vec4(finalColor, 1.0);
       }`;
     
@@ -1024,7 +1024,7 @@ function debugRenderDyeTexture() {
   
   gl.viewport(0, 0, canvas.width, canvas.height);
   gl.disable(gl.DEPTH_TEST);
-  gl.clearColor(0.0, 0.0, 0.0, 1.0);
+  gl.clearColor(0.95, 0.92, 0.88, 1.0);  // Cream background
   gl.clear(gl.COLOR_BUFFER_BIT);
   
   gl.useProgram(window.debugQuadProg);
